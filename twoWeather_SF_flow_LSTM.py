@@ -11,9 +11,16 @@ os.chdir("D:\\Study\\Marko Mine\\Concentration")
 # Importing the libraries
 import numpy as np
 import pandas as pd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import MinMaxScaler
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, GRU
+from tensorflow.keras.constraints import max_norm
+import tensorflow as tf
+
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 # =============================================================================
 # Choosing parameters
@@ -117,6 +124,217 @@ y_test_not_scaled = y_not_scaled[len(X_scaled)+1-test_size:]
 test_datetime = datetime_deNull[len(X_scaled)+1-test_size:]
 
 # Deleting NaNs in samples
+k = 0
+for i in range(0, len(X_train)):
+    if k>=len(X_train):
+        break
+    for j in X_train[k, :, :]:
+        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]):
+            #print('k:', k)# for testing, print out which sample contains NaN
+            X_train = np.r_[X_train[:k, :, :], X_train[k+1:, :, :]]
+            y_train = np.r_[y_train[:k], y_train[k+1:]]
+            y_train_not_scaled = np.r_[y_train_not_scaled[:k], y_train_not_scaled[k+1:]]
+            train_datetime = np.r_[train_datetime[:k], train_datetime[k+1:]]
+            k = k - 1
+            break
+    k = k + 1
+# 259 available for training
+k = 0
+for i in range(0, len(X_test)):
+    if k>=len(X_test):
+        break
+    for j in X_test[k, :, :]:
+        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]):
+            #print('k:', k)
+            X_test = np.r_[X_test[:k, :, :], X_test[k+1:, :, :]]
+            y_test = np.r_[y_test[:k], y_test[k+1:]]
+            y_test_not_scaled = np.r_[y_test_not_scaled[:k], y_test_not_scaled[k+1:]]
+            test_datetime = np.r_[test_datetime[:k], test_datetime[k+1:]]
+            k = k - 1
+            break
+    k = k + 1
+# 13 available for testing
+
+#print(tf.__version__)
+tf.keras.backend.clear_session()
+tf.random.set_seed(seed)
+
+opt = tf.keras.optimizers.Adam(learning_rate=0.0002)#default lr=0.001
+#@tf.function
+def create_LSTM(neurons, dropoutRate, constraints):
+    # Ignore the WARNING here, numpy version problem
+    
+    # Initializing the RNN
+    regressor = Sequential()
+    #regressor.add(Dropout(rate=0.2))
+    '''
+    # Adding the first layer of LSTM and some Dropout regularization (to prevent overfitting)
+    regressor.add(LSTM(units=neurons, return_sequences=True, recurrent_dropout=dropoutRate, 
+                       kernel_constraint=max_norm(constraints), recurrent_constraint=max_norm(constraints), 
+                       bias_constraint=max_norm(constraints)))
+    
+    # Adding a second LSTM layer and some Dropout regulariazation
+    regressor.add(LSTM(units=neurons, return_sequences=True, recurrent_dropout=dropoutRate, 
+                       kernel_constraint=max_norm(constraints), recurrent_constraint=max_norm(constraints), 
+                       bias_constraint=max_norm(constraints)))
+    '''
+    # Adding the last LSTM layer and some Dropout regulariazation
+    regressor.add(LSTM(units=neurons, return_sequences=False, recurrent_dropout=dropoutRate,
+                       kernel_constraint=max_norm(constraints), recurrent_constraint=max_norm(constraints), 
+                       bias_constraint=max_norm(constraints)))
+    '''
+    # Adding ANN layer
+    regressor.add(Dense(units=neurons, kernel_initializer='random_normal', activation='linear'))# Output layer do not need specify the activation function
+    '''
+    # Adding output layer
+    regressor.add(Dense(units=1, kernel_initializer='random_normal', activation='relu'))# Output layer do not need specify the activation function
+    
+    # Compiling the RNN by usign right optimizer and right loss function
+    regressor.compile(loss='mean_squared_error', optimizer=opt, metrics=['mse'])#adam to be changed
+    return regressor
+
+def create_GRU(neurons, dropoutRate, constraints):
+    # Ignore the WARNING here, numpy version problem
+    
+    # Initializing the RNN
+    regressor = Sequential()
+    #regressor.add(Dropout(rate=0.2))
+    '''
+    # Adding the first layer of GRU and some Dropout regularization (to prevent overfitting)
+    regressor.add(GRU(units=neurons, return_sequences=True, recurrent_dropout=dropoutRate, 
+                       kernel_constraint=max_norm(constraints), recurrent_constraint=max_norm(constraints), 
+                       bias_constraint=max_norm(constraints)))
+    
+    # Adding a second GRU layer and some Dropout regulariazation
+    regressor.add(GRU(units=neurons, return_sequences=True, recurrent_dropout=dropoutRate, 
+                       kernel_constraint=max_norm(constraints), recurrent_constraint=max_norm(constraints), 
+                       bias_constraint=max_norm(constraints)))
+    '''
+    # Adding the last GRU layer and some Dropout regulariazation
+    regressor.add(GRU(units=neurons, return_sequences=False, recurrent_dropout=dropoutRate,
+                       kernel_constraint=max_norm(constraints), recurrent_constraint=max_norm(constraints), 
+                       bias_constraint=max_norm(constraints)))
+    '''
+    # Adding ANN layer
+    regressor.add(Dense(units=neurons, kernel_initializer='random_normal', activation='linear'))# Output layer do not need specify the activation function
+    '''
+    # Adding output layer
+    regressor.add(Dense(units=1, kernel_initializer='random_normal', activation='relu'))# Output layer do not need specify the activation function
+    
+    # Compiling the RNN by usign right optimizer and right loss function
+    regressor.compile(loss='mean_squared_error', optimizer=opt, metrics=['mse'])#adam to be changed
+    return regressor
+
+def rootMSE(y_test, y_pred):
+    import math
+    from sklearn.metrics import mean_squared_error
+    rmse = math.sqrt(mean_squared_error(y_test, y_pred))
+    print('RMSE = %2.2f' % rmse)
+    print('Predicted results length:', y_pred.shape)
+    y_test = np.array(y_test).reshape(-1, 1)
+    print('Real results length:', y_test.shape)
+    return rmse
+
+# Setting hyperparameters manually
+best_neurons = 50
+best_dropoutRate = 0.1
+constraints = 99
+batch_size = 4
+
+early_epoch = 200
+validation_freq = 1
+
+print('The training stopped at epoch:', early_epoch)
+print('Training the LSTM without monitoring the validation set...')
+
+#2 choose 1 
+#LSTM
+regressor = create_LSTM(neurons=best_neurons,
+                        dropoutRate=best_dropoutRate,
+                        constraints=constraints)
+#GRU
+#regressor = create_GRU(neurons=best_neurons,
+#                        dropoutRate=best_dropoutRate,
+#                        constraints=constraints)
+
+#save trained model
+checkpoint = ModelCheckpoint('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
+                             monitor='val_loss', verbose=1, 
+                             save_best_only=False, save_weights_only=True, 
+                             mode='auto', save_freq='epoch')
+
+r = regressor.fit(X_train, y_train, epochs=early_epoch, batch_size=batch_size, 
+                  validation_data=(X_test, y_test), 
+                  validation_freq=validation_freq, callbacks=[checkpoint])
+regressor.summary()
+
+plt.plot(range(1,early_epoch+1), r.history['loss'], label='loss')
+plt.plot(np.linspace(0,early_epoch,int(early_epoch/validation_freq)+1,endpoint=True)[1:int(int(early_epoch/validation_freq)+1)], 
+         r.history['val_loss'], label='val_loss')
+loss_history = np.c_[r.history['loss'], r.history['val_loss']]
+plt.legend()
+plt.show()
+print('epoch         loss         val_loss')
+print(np.c_[range(1,early_epoch+1), loss_history])
+#save history loss
+np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+
+sc_flow = MinMaxScaler(feature_range=(0, 1), copy=True)
+sc_flow.fit_transform(np.array(y_train_not_scaled).reshape(-1, 1))
+
+# Sensitivity test
+#X_test[:,:,1] = 1.2*X_test[:,:,0]#Year+-20%
+#X_test[:,:,1] = 1.2*X_test[:,:,1]#Temp+-20%
+#X_test[:,:,2] = 0.8*X_test[:,:,2]#Precip+-20%
+
+#X_train[:,:,1] = 1.2*X_test[:,:,0]#Year+-20%
+#X_train[:,:,1] = 1.2*X_train[:,:,1]#Temp+-20%
+#X_train[:,:,2] = 0.8*X_train[:,:,2]#Precip+-20%
+
+y_pred_scaled = regressor.predict(X_test)
+y_pred = sc_flow.inverse_transform(y_pred_scaled)
+
+y_pred_scaled_train = regressor.predict(X_train)
+y_pred_train = sc_flow.inverse_transform(y_pred_scaled_train)
+
+# Evaluation
+rootMSE(y_test_not_scaled, y_pred)
+
+# =============================================================================
+# Plotting the training and test prediction
+# =============================================================================
+plt.plot(test_datetime, y_test_not_scaled, label='test')
+plt.plot(test_datetime, y_pred, label='test pred')#x-label requires turning angle
+plt.legend(loc='best')
+plt.show()
+
+plt.plot(train_datetime, y_pred_train, label='train pred')
+plt.plot(train_datetime, y_train_not_scaled, label='train')
+#plt.xticks(train_datetime, train_datetime, rotation = 'vertical')
+plt.legend(loc='best')
+plt.show()
+
+# =============================================================================
+# Saving the training results
+# =============================================================================
+# Saving prediction on test set
+np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,y_test_not_scaled,y_pred],fmt='%s',delimiter=',')
+
+# Saving prediction on train set
+np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
+
+# Restore the weights
+best_epoch = 93
+regressor.load_weights('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
+
+# =============================================================================
+# Predicting on everyday weather data
+# =============================================================================
+
+
+
+
+
 
 
 
