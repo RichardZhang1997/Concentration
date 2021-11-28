@@ -25,7 +25,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # =============================================================================
 # Choosing parameters
 # =============================================================================
-station = 'FRO_KC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+station = 'FRO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
 species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
 
 avg_days = 6#average days for LSTM input
@@ -59,7 +59,7 @@ flowrate['Datetime'] = pd.to_datetime(flowrate['Date'], format='%Y/%m/%d')
 flowrate.drop('Date', 1, inplace=True)
 
 #Target
-concentration = pd.read_csv('.\\conc_data_csv\\'+station+'_'+species+'.csv')
+concentration = pd.read_csv('.\\conc_data_csv\\'+station+'_'+species+'.csv')#conc. in unit of mg/L
 concentration.columns = ['sample_date', 'conc']
 concentration['Datetime'] = pd.to_datetime(concentration['sample_date'], format='%Y/%m/%d')
 concentration.drop('sample_date', 1, inplace=True)
@@ -71,6 +71,11 @@ concentration.drop('sample_date', 1, inplace=True)
 merge = pd.merge(weather, flowrate, on=('Datetime'), how='left')
 merge = pd.merge(merge, SF_output, on=('Datetime'), how='left')
 merge = pd.merge(merge, concentration, on=('Datetime'), how='left')
+
+#choose to predict load or concentration
+merge['load'] = merge['flowrate']*merge['conc']
+merge.drop('conc', 1, inplace=True)
+
 merge = np.array(merge)
 merge = pd.DataFrame(merge, index=merge[:, 8])
 
@@ -155,11 +160,21 @@ for i in range(0, len(X_test)):
     k = k + 1
 # 13 available for testing
 
+def rootMSE(y_test, y_pred):
+    import math
+    from sklearn.metrics import mean_squared_error
+    rmse = math.sqrt(mean_squared_error(y_test, y_pred))
+    print('RMSE = %2.2f' % rmse)
+    print('Predicted results length:', y_pred.shape)
+    y_test = np.array(y_test).reshape(-1, 1)
+    print('Real results length:', y_test.shape)
+    return rmse
+
 #print(tf.__version__)
 tf.keras.backend.clear_session()
 tf.random.set_seed(seed)
 
-opt = tf.keras.optimizers.Adam(learning_rate=0.0002)#default lr=0.001
+opt = tf.keras.optimizers.Adam(learning_rate=0.001)#default lr=0.001
 #@tf.function
 def create_LSTM(neurons, dropoutRate, constraints):
     # Ignore the WARNING here, numpy version problem
@@ -225,16 +240,6 @@ def create_GRU(neurons, dropoutRate, constraints):
     regressor.compile(loss='mean_squared_error', optimizer=opt, metrics=['mse'])#adam to be changed
     return regressor
 
-def rootMSE(y_test, y_pred):
-    import math
-    from sklearn.metrics import mean_squared_error
-    rmse = math.sqrt(mean_squared_error(y_test, y_pred))
-    print('RMSE = %2.2f' % rmse)
-    print('Predicted results length:', y_pred.shape)
-    y_test = np.array(y_test).reshape(-1, 1)
-    print('Real results length:', y_test.shape)
-    return rmse
-
 # Setting hyperparameters manually
 best_neurons = 50
 best_dropoutRate = 0.1
@@ -249,16 +254,22 @@ print('Training the LSTM without monitoring the validation set...')
 
 #2 choose 1 
 #LSTM
-regressor = create_LSTM(neurons=best_neurons,
-                        dropoutRate=best_dropoutRate,
-                        constraints=constraints)
-#GRU
-#regressor = create_GRU(neurons=best_neurons,
+#regressor = create_LSTM(neurons=best_neurons,
 #                        dropoutRate=best_dropoutRate,
 #                        constraints=constraints)
 
-#save trained model
-checkpoint = ModelCheckpoint('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
+#GRU
+regressor = create_GRU(neurons=best_neurons,
+                        dropoutRate=best_dropoutRate,
+                        constraints=constraints)
+
+#choose checkpoint for LSTM or GRU save trained model
+#checkpoint = ModelCheckpoint('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
+#                             monitor='val_loss', verbose=1, 
+#                             save_best_only=False, save_weights_only=True, 
+#                             mode='auto', save_freq='epoch')
+
+checkpoint = ModelCheckpoint('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
                              monitor='val_loss', verbose=1, 
                              save_best_only=False, save_weights_only=True, 
                              mode='auto', save_freq='epoch')
@@ -276,8 +287,9 @@ plt.legend()
 plt.show()
 print('epoch         loss         val_loss')
 print(np.c_[range(1,early_epoch+1), loss_history])
-#save history loss
-np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+#choose LSTM or GRU save history loss
+#np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+np.savetxt('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
 
 sc_flow = MinMaxScaler(feature_range=(0, 1), copy=True)
 sc_flow.fit_transform(np.array(y_train_not_scaled).reshape(-1, 1))
@@ -324,8 +336,9 @@ np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,y_test_not_s
 np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 93
-regressor.load_weights('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
+best_epoch = 129
+#regressor.load_weights('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
+regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
 
 # =============================================================================
 # Predicting on everyday weather data
