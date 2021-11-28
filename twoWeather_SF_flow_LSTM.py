@@ -25,8 +25,11 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # =============================================================================
 # Choosing parameters
 # =============================================================================
-station = 'FRO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
 species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
+
+target_type = 'conc'#choose 'load' OR 'conc'
+recurrent_type = 'LSTM'#choose 'LSTM' OR 'GRU'
 
 avg_days = 6#average days for LSTM input
 time_step = 10
@@ -58,7 +61,7 @@ flowrate.columns = ['Date', 'flowrate']
 flowrate['Datetime'] = pd.to_datetime(flowrate['Date'], format='%Y/%m/%d')
 flowrate.drop('Date', 1, inplace=True)
 
-#Target
+#target
 concentration = pd.read_csv('.\\conc_data_csv\\'+station+'_'+species+'.csv')#conc. in unit of mg/L
 concentration.columns = ['sample_date', 'conc']
 concentration['Datetime'] = pd.to_datetime(concentration['sample_date'], format='%Y/%m/%d')
@@ -73,8 +76,14 @@ merge = pd.merge(merge, SF_output, on=('Datetime'), how='left')
 merge = pd.merge(merge, concentration, on=('Datetime'), how='left')
 
 #choose to predict load or concentration
-merge['load'] = merge['flowrate']*merge['conc']
-merge.drop('conc', 1, inplace=True)
+if target_type == 'load':
+    print('The target is set to be load.')
+    merge['load'] = merge['flowrate']*merge['conc']
+    merge.drop('conc', 1, inplace=True)
+elif target_type == 'conc':
+    print('The target is set to be concentration.')
+else:
+    print('Wrong target type, go with target as concentration anyway.')
 
 merge = np.array(merge)
 merge = pd.DataFrame(merge, index=merge[:, 8])
@@ -118,15 +127,15 @@ datetime_deNull = np.array(datetime_deNull)
 
 test_size = len(pd.DataFrame(test).dropna())#Number of valid test size
 
-X_train = X_scaled[:len(X_scaled)+1-test_size, :, :]
-y_train = y_scaled[:len(X_scaled)+1-test_size]
-y_train_not_scaled = y_not_scaled[:len(X_scaled)+1-test_size]
+X_train = X_scaled[:len(X_scaled)-test_size, :, :]
+y_train = y_scaled[:len(X_scaled)-test_size]
+y_train_not_scaled = y_not_scaled[:len(X_scaled)-test_size]
 train_datetime = datetime_deNull[:len(X_scaled)+1-test_size]
 
-X_test = X_scaled[len(X_scaled)+1-test_size:, :, :]
-y_test = y_scaled[len(X_scaled)+1-test_size:]
-y_test_not_scaled = y_not_scaled[len(X_scaled)+1-test_size:]
-test_datetime = datetime_deNull[len(X_scaled)+1-test_size:]
+X_test = X_scaled[len(X_scaled)-test_size:, :, :]
+y_test = y_scaled[len(X_scaled)-test_size:]
+y_test_not_scaled = y_not_scaled[len(X_scaled)-test_size:]
+test_datetime = datetime_deNull[len(X_scaled)-test_size:]
 
 # Deleting NaNs in samples
 k = 0
@@ -253,26 +262,37 @@ print('The training stopped at epoch:', early_epoch)
 print('Training the LSTM without monitoring the validation set...')
 
 #2 choose 1 
-#LSTM
-#regressor = create_LSTM(neurons=best_neurons,
-#                        dropoutRate=best_dropoutRate,
-#                        constraints=constraints)
+#LSTM/GRU
+if recurrent_type == 'LSTM':
+    print('Creating LSTM...')
+    regressor = create_LSTM(neurons=best_neurons,
+                            dropoutRate=best_dropoutRate,
+                            constraints=constraints)
+    
+    checkpoint = ModelCheckpoint('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
+                                 monitor='val_loss', verbose=1, 
+                                 save_best_only=False, save_weights_only=True, 
+                                 mode='auto', save_freq='epoch')
+elif recurrent_type == 'GRU':
+    print('Creating GRU...')
+    regressor = create_GRU(neurons=best_neurons,
+                            dropoutRate=best_dropoutRate,
+                            constraints=constraints)
 
-#GRU
-regressor = create_GRU(neurons=best_neurons,
-                        dropoutRate=best_dropoutRate,
-                        constraints=constraints)
-
-#choose checkpoint for LSTM or GRU save trained model
-#checkpoint = ModelCheckpoint('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
-#                             monitor='val_loss', verbose=1, 
-#                             save_best_only=False, save_weights_only=True, 
-#                             mode='auto', save_freq='epoch')
-
-checkpoint = ModelCheckpoint('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
-                             monitor='val_loss', verbose=1, 
-                             save_best_only=False, save_weights_only=True, 
-                             mode='auto', save_freq='epoch')
+    checkpoint = ModelCheckpoint('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
+                                 monitor='val_loss', verbose=1, 
+                                 save_best_only=False, save_weights_only=True, 
+                                 mode='auto', save_freq='epoch')
+else:
+    print('Wrong target type, go with LSTM anyway.')
+    regressor = create_LSTM(neurons=best_neurons,
+                            dropoutRate=best_dropoutRate,
+                            constraints=constraints)
+    
+    checkpoint = ModelCheckpoint('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_{epoch:02d}', 
+                                 monitor='val_loss', verbose=1, 
+                                 save_best_only=False, save_weights_only=True, 
+                                 mode='auto', save_freq='epoch')
 
 r = regressor.fit(X_train, y_train, epochs=early_epoch, batch_size=batch_size, 
                   validation_data=(X_test, y_test), 
@@ -288,8 +308,10 @@ plt.show()
 print('epoch         loss         val_loss')
 print(np.c_[range(1,early_epoch+1), loss_history])
 #choose LSTM or GRU save history loss
-#np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
-np.savetxt('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+if recurrent_type == 'GRU':
+    np.savetxt('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+else:
+    np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
 
 sc_flow = MinMaxScaler(feature_range=(0, 1), copy=True)
 sc_flow.fit_transform(np.array(y_train_not_scaled).reshape(-1, 1))
@@ -337,8 +359,11 @@ np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,y_train_no
 
 # Restore the weights
 best_epoch = 129
-#regressor.load_weights('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
-regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
+#choose load direction
+if recurrent_type == 'GRU':
+    regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
+else:
+    regressor.load_weights('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
 
 # =============================================================================
 # Predicting on everyday weather data
