@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from scipy import interpolate
+
 from sklearn.preprocessing import MinMaxScaler
 
 from tensorflow.keras.models import Sequential
@@ -26,10 +28,10 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # Choosing parameters
 # =============================================================================
 station = 'FRO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
-species = 'Se'#'NO3' OR 'Se' OR 'SO4'
+species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
 
 target_type = 'load'#choose 'load' OR 'conc'
-recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
+recurrent_type = 'LSTM'#choose 'LSTM' OR 'GRU'
 
 avg_days = 6#average days for LSTM input
 time_step = 10
@@ -40,12 +42,21 @@ train_startDate = '1980-01-01'
 test_startDate = '2013-01-01'
 endDate = '2013-12-31'
 
+#interpolation kind for waste rock volume
+interp_kind = 'slinear'#"nearest","zero","slinear","quadratic","cubic"
+
 # =============================================================================
 # Loading datasets
 # =============================================================================
 #2 choose 1
-weather = pd.read_csv('.\\Weather\\weather_1980-2020_avg_'+str(avg_days)+'.csv')#with Nulls
+weather = pd.read_csv('.\\Weather\\weather_1980-2020_avg_'+str(avg_days)+'_dateNum.csv')#with Nulls
 #weather = pd.read_csv('.\\Weather\\Weather_long_filled_avg_'+str(avg_days)+'.csv')#Null-filled
+
+#waste rock volume
+waste_rock_volume = pd.read_csv('Waste_rock_volume.csv')
+f_wsVol=interpolate.interp1d(waste_rock_volume['Date_num'],waste_rock_volume[station],kind=interp_kind)
+weather['WS_vol'] = f_wsVol(weather['Date_num'])
+weather.drop('Date_num', 1, inplace=True)
 
 weather['Datetime'] = pd.to_datetime(weather['Date/Time'], format='%Y/%m/%d')
 weather.drop('Date/Time', 1, inplace=True)
@@ -86,11 +97,11 @@ else:
     print('Wrong target type, go with target as concentration anyway.')
 
 merge = np.array(merge)
-merge = pd.DataFrame(merge, index=merge[:, 8])
+merge = pd.DataFrame(merge, index=merge[:, 9])
 
 #train/test separation
-test = merge.loc[test_startDate : endDate].drop(8,1).drop(2,1).values#drop date and datetime columns
-train = merge.loc[train_startDate : test_startDate].drop(8,1).drop(2,1).values#Changed
+test = merge.loc[test_startDate : endDate].drop(9,1).drop(2,1).values#drop date and datetime columns
+train = merge.loc[train_startDate : test_startDate].drop(9,1).drop(2,1).values#Changed
 
 #feature selection
 train = np.c_[train[:, 0], train[:, 2], train[:, 5], train[:, 7:]]#year, temp, precip, flow, SF, conc
@@ -143,7 +154,7 @@ for i in range(0, len(X_train)):
     if k>=len(X_train):
         break
     for j in X_train[k, :, :]:
-        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]):
+        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]) or np.isnan(j[5]):
             #print('k:', k)# for testing, print out which sample contains NaN
             X_train = np.r_[X_train[:k, :, :], X_train[k+1:, :, :]]
             y_train = np.r_[y_train[:k], y_train[k+1:]]
@@ -158,7 +169,7 @@ for i in range(0, len(X_test)):
     if k>=len(X_test):
         break
     for j in X_test[k, :, :]:
-        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]):
+        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]) or np.isnan(j[5]):
             #print('k:', k)
             X_test = np.r_[X_test[:k, :, :], X_test[k+1:, :, :]]
             y_test = np.r_[y_test[:k], y_test[k+1:]]
@@ -358,7 +369,7 @@ np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,y_test_not_s
 np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 197
+best_epoch = 195
 #choose load direction
 if recurrent_type == 'GRU':
     regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
