@@ -284,7 +284,7 @@ elif recurrent_type == 'GRU':
                                  save_best_only=False, save_weights_only=True, 
                                  mode='auto', save_freq='epoch')
 else:
-    print('Wrong target type, go with LSTM anyway.')
+    print('Wrong recurrent type, go with LSTM anyway.')
     regressor = create_LSTM(neurons=best_neurons,
                             dropoutRate=best_dropoutRate,
                             constraints=constraints)
@@ -305,6 +305,7 @@ plt.plot(np.linspace(0,early_epoch,int(early_epoch/validation_freq)+1,endpoint=T
 loss_history = np.c_[r.history['loss'], r.history['val_loss']]
 plt.legend()
 plt.show()
+
 print('epoch         loss         val_loss')
 print(np.c_[range(1,early_epoch+1), loss_history])
 #choose LSTM or GRU save history loss
@@ -317,11 +318,11 @@ sc_flow = MinMaxScaler(feature_range=(0, 1), copy=True)
 sc_flow.fit_transform(np.array(y_train_not_scaled).reshape(-1, 1))
 
 # Sensitivity test
-#X_test[:,:,1] = 1.2*X_test[:,:,0]#Year+-20%
+#X_test[:,:,0] = 1.2*X_test[:,:,0]#Year+-20%
 #X_test[:,:,1] = 1.2*X_test[:,:,1]#Temp+-20%
 #X_test[:,:,2] = 0.8*X_test[:,:,2]#Precip+-20%
 
-#X_train[:,:,1] = 1.2*X_test[:,:,0]#Year+-20%
+#X_train[:,:,0] = 1.2*X_train[:,:,0]#Year+-20%
 #X_train[:,:,1] = 1.2*X_train[:,:,1]#Temp+-20%
 #X_train[:,:,2] = 0.8*X_train[:,:,2]#Precip+-20%
 
