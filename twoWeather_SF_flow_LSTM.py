@@ -25,11 +25,11 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # =============================================================================
 # Choosing parameters
 # =============================================================================
-station = 'FRO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+station = 'FRO_KC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
 species = 'Se'#'NO3' OR 'Se' OR 'SO4'
 
-target_type = 'load'#choose 'load' OR 'conc'
-recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
+target_type = 'conc'#choose 'load' OR 'conc'
+recurrent_type = 'LSTM'#choose 'LSTM' OR 'GRU'
 
 avg_days = 6#average days for LSTM input
 time_step = 10
@@ -183,7 +183,7 @@ def rootMSE(y_test, y_pred):
 tf.keras.backend.clear_session()
 tf.random.set_seed(seed)
 
-opt = tf.keras.optimizers.Adam(learning_rate=0.001)#default lr=0.001
+opt = tf.keras.optimizers.Adam(learning_rate=0.0001)#default lr=0.001
 #@tf.function
 def create_LSTM(neurons, dropoutRate, constraints):
     # Ignore the WARNING here, numpy version problem
@@ -308,11 +308,14 @@ plt.show()
 
 print('epoch         loss         val_loss')
 print(np.c_[range(1,early_epoch+1), loss_history])
+
 #choose LSTM or GRU save history loss
 if recurrent_type == 'GRU':
-    np.savetxt('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+    np.savetxt('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_loss_history.csv',
+               np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
 else:
-    np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
+    np.savetxt('./Vanilla_LSTM results/'+station+'/'+species+'/5Input_conc_loss_history.csv',
+               np.c_[range(1,early_epoch+1), loss_history],fmt='%s',delimiter=',')
 
 sc_flow = MinMaxScaler(feature_range=(0, 1), copy=True)
 sc_flow.fit_transform(np.array(y_train_not_scaled).reshape(-1, 1))
@@ -332,34 +335,74 @@ y_pred = sc_flow.inverse_transform(y_pred_scaled)
 y_pred_scaled_train = regressor.predict(X_train)
 y_pred_train = sc_flow.inverse_transform(y_pred_scaled_train)
 
+#Getting flow rate for training and testing sets
+DF_train_datetime = pd.DataFrame({'Datetime': train_datetime})
+DF_train_datetime['Datetime'] = pd.to_datetime(DF_train_datetime['Datetime'], format='%Y/%m/%d')
+DF_train_datetime = pd.merge(DF_train_datetime, flowrate, on=('Datetime'), how='left')
+flowrate_train = np.array(DF_train_datetime['flowrate'])
+
+DF_test_datetime = pd.DataFrame({'Datetime': test_datetime})
+DF_test_datetime['Datetime'] = pd.to_datetime(DF_test_datetime['Datetime'], format='%Y/%m/%d')
+DF_test_datetime = pd.merge(DF_test_datetime, flowrate, on=('Datetime'), how='left')
+flowrate_test = np.array(DF_test_datetime['flowrate'])
+
 # Evaluation
-rootMSE(y_test_not_scaled, y_pred)
+if target_type == 'load':
+    rootMSE(y_test_not_scaled, y_pred)
+elif target_type == 'conc':
+    print('The target is concentration but the RMSE score is based on the calculated load.')
+    rootMSE(np.multiply(y_test_not_scaled.reshape(len(test_datetime),1),flowrate_test.reshape(len(test_datetime),1)), 
+            np.multiply(y_pred.reshape(len(test_datetime),1),flowrate_test.reshape(len(test_datetime),1)))
+else:
+    print('Wrong target type.')
 
 # =============================================================================
 # Plotting the training and test prediction
 # =============================================================================
-plt.plot(test_datetime, y_test_not_scaled, label='test')
-plt.plot(test_datetime, y_pred, label='test pred')#x-label requires turning angle
-plt.legend(loc='best')
-plt.show()
+#Plot test
+if target_type == 'load':
+    plt.plot(test_datetime, y_test_not_scaled, label='test')
+    plt.plot(test_datetime, y_pred, label='test pred')#x-label requires turning angle
+    plt.legend(loc='best')
+    plt.show()
+elif target_type == 'conc':
+    plt.plot(test_datetime, np.multiply(y_test_not_scaled.reshape(len(test_datetime),1),
+                                        flowrate_test.reshape(len(test_datetime),1)), label='test')
+    plt.plot(test_datetime, np.multiply(y_pred.reshape(len(test_datetime),1),
+                                        flowrate_test.reshape(len(test_datetime),1)), label='test pred')#x-label requires turning angle
+    plt.legend(loc='best')
+    plt.show()
+else:
+    print('Wrong target type.')
 
-plt.plot(train_datetime, y_pred_train, label='train pred')
-plt.plot(train_datetime, y_train_not_scaled, label='train')
-#plt.xticks(train_datetime, train_datetime, rotation = 'vertical')
-plt.legend(loc='best')
-plt.show()
+#Plot train
+if target_type == 'load':
+    plt.plot(train_datetime, y_pred_train, label='train pred')
+    plt.plot(train_datetime, y_train_not_scaled, label='train')
+    #plt.xticks(train_datetime, train_datetime, rotation = 'vertical')
+    plt.legend(loc='best')
+    plt.show()
+elif target_type == 'conc':
+    plt.plot(train_datetime, np.multiply(y_train_not_scaled.reshape(len(train_datetime),1),
+                                         flowrate_train.reshape(len(train_datetime),1)), label='train')
+    plt.plot(train_datetime, np.multiply(y_pred_train.reshape(len(train_datetime),1),
+                                         flowrate_train.reshape(len(train_datetime),1)), label='train pred')#x-label requires turning angle
+    plt.legend(loc='best')
+    plt.show()
+else:
+    print('Wrong target type.')
 
 # =============================================================================
 # Saving the training results
 # =============================================================================
 # Saving prediction on test set
-np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,y_test_not_scaled,y_pred],fmt='%s',delimiter=',')
+np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,flowrate_test,y_test_not_scaled,y_pred],fmt='%s',delimiter=',')
 
 # Saving prediction on train set
-np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
+np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,flowrate_train,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 197
+best_epoch = 176
 #choose load direction
 if recurrent_type == 'GRU':
     regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
