@@ -25,20 +25,22 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # =============================================================================
 # Choosing parameters
 # =============================================================================
-station = 'FRO_KC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
 species = 'Se'#'NO3' OR 'Se' OR 'SO4'
 
-target_type = 'conc'#choose 'load' OR 'conc'
-recurrent_type = 'LSTM'#choose 'LSTM' OR 'GRU'
+target_type = 'conc'#fixed to conc
+recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
 
 avg_days = 6#average days for LSTM input
 time_step = 10
 gap_days = 0#No. of days between the last day of input and the predict date
 seed = 99#seed gave the best prediction result for FRO KC1 station, keep it
 
-train_startDate = '1980-01-01'
+train_startDate = '1999-01-01'
 test_startDate = '2013-01-01'
 endDate = '2013-12-31'
+
+outlier_threshold = 300#100 for EVO_HC1, 300 and 50 for FRO_KC1 and FRO_HC1
 
 # =============================================================================
 # Loading datasets
@@ -66,6 +68,11 @@ concentration = pd.read_csv('.\\conc_data_csv\\'+station+'_'+species+'.csv')#con
 concentration.columns = ['sample_date', 'conc']
 concentration['Datetime'] = pd.to_datetime(concentration['sample_date'], format='%Y/%m/%d')
 concentration.drop('sample_date', 1, inplace=True)
+
+#deleting outliers
+for i in range(0, len(concentration)):
+    if concentration['conc'][i] > outlier_threshold:
+        concentration.drop(i, 0, inplace=True)
 
 # =============================================================================
 # Pre-processing
@@ -183,7 +190,7 @@ def rootMSE(y_test, y_pred):
 tf.keras.backend.clear_session()
 tf.random.set_seed(seed)
 
-opt = tf.keras.optimizers.Adam(learning_rate=0.0001)#default lr=0.001
+opt = tf.keras.optimizers.Adam(learning_rate=1e-4)#default lr=0.001
 #@tf.function
 def create_LSTM(neurons, dropoutRate, constraints):
     # Ignore the WARNING here, numpy version problem
@@ -347,12 +354,14 @@ DF_test_datetime = pd.merge(DF_test_datetime, flowrate, on=('Datetime'), how='le
 flowrate_test = np.array(DF_test_datetime['flowrate'])
 
 # Evaluation
-if target_type == 'load':
+if target_type == 'conc':
     rootMSE(y_test_not_scaled, y_pred)
+    '''
 elif target_type == 'conc':
     print('The target is concentration but the RMSE score is based on the calculated load.')
     rootMSE(np.multiply(y_test_not_scaled.reshape(len(test_datetime),1),flowrate_test.reshape(len(test_datetime),1)), 
             np.multiply(y_pred.reshape(len(test_datetime),1),flowrate_test.reshape(len(test_datetime),1)))
+    '''
 else:
     print('Wrong target type.')
 
@@ -360,11 +369,12 @@ else:
 # Plotting the training and test prediction
 # =============================================================================
 #Plot test
-if target_type == 'load':
+if target_type == 'conc':
     plt.plot(test_datetime, y_test_not_scaled, label='test')
     plt.plot(test_datetime, y_pred, label='test pred')#x-label requires turning angle
     plt.legend(loc='best')
     plt.show()
+    '''
 elif target_type == 'conc':
     plt.plot(test_datetime, np.multiply(y_test_not_scaled.reshape(len(test_datetime),1),
                                         flowrate_test.reshape(len(test_datetime),1)), label='test')
@@ -372,16 +382,19 @@ elif target_type == 'conc':
                                         flowrate_test.reshape(len(test_datetime),1)), label='test pred')#x-label requires turning angle
     plt.legend(loc='best')
     plt.show()
+    '''
 else:
     print('Wrong target type.')
 
 #Plot train
-if target_type == 'load':
+if target_type == 'conc':
     plt.plot(train_datetime, y_pred_train, label='train pred')
     plt.plot(train_datetime, y_train_not_scaled, label='train')
     #plt.xticks(train_datetime, train_datetime, rotation = 'vertical')
+    #plt.ylim(top=45)
     plt.legend(loc='best')
     plt.show()
+    '''
 elif target_type == 'conc':
     plt.plot(train_datetime, np.multiply(y_train_not_scaled.reshape(len(train_datetime),1),
                                          flowrate_train.reshape(len(train_datetime),1)), label='train')
@@ -389,6 +402,7 @@ elif target_type == 'conc':
                                          flowrate_train.reshape(len(train_datetime),1)), label='train pred')#x-label requires turning angle
     plt.legend(loc='best')
     plt.show()
+    '''
 else:
     print('Wrong target type.')
 
@@ -402,7 +416,7 @@ np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,flowrate_tes
 np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,flowrate_train,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 176
+best_epoch = 100
 #choose load direction
 if recurrent_type == 'GRU':
     regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
