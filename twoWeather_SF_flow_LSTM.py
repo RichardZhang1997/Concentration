@@ -26,7 +26,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # Choosing parameters
 # =============================================================================
 station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
-species = 'Se'#'NO3' OR 'Se' OR 'SO4'
+species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
 
 target_type = 'conc'#fixed to conc
 recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
@@ -34,13 +34,13 @@ recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
 avg_days = 6#average days for LSTM input
 time_step = 10
 gap_days = 0#No. of days between the last day of input and the predict date
-seed = 99#seed gave the best prediction result for FRO KC1 station, keep it
+seed = 39#seed gave the best prediction result for FRO KC1 station, keep it
 
-train_startDate = '1999-01-01'
+train_startDate = '1980-01-01'
 test_startDate = '2013-01-01'
 endDate = '2013-12-31'
 
-outlier_threshold = 300#100 for EVO_HC1, 300 and 50 for FRO_KC1 and FRO_HC1
+outlier_threshold = 6#100 for EVO_HC1, 300 for FRO_KC1, 50 for FRO_HC1
 
 # =============================================================================
 # Loading datasets
@@ -57,7 +57,7 @@ SF_output.columns = ['Date', 'Output_SF']
 SF_output['Datetime'] = pd.to_datetime(SF_output['Date'], format='%Y/%m/%d')
 SF_output.drop('Date', 1, inplace=True)
 
-#Choose weather the flowrate data should be averaged or not
+#choose weather the flowrate data should be averaged or not
 flowrate = pd.read_csv('.\\SF_flow_pred\\pred_whole_1980-2020_'+station+'_4Input.csv')
 flowrate.columns = ['Date', 'flowrate']
 flowrate['Datetime'] = pd.to_datetime(flowrate['Date'], format='%Y/%m/%d')
@@ -100,8 +100,8 @@ test = merge.loc[test_startDate : endDate].drop(8,1).drop(2,1).values#drop date 
 train = merge.loc[train_startDate : test_startDate].drop(8,1).drop(2,1).values#Changed
 
 #feature selection
-train = np.c_[train[:, 0], train[:, 2], train[:, 5], train[:, 7:]]#year, temp, precip, flow, SF, conc
 test = np.c_[test[:, 0], test[:, 2], test[:, 5], test[:, 7:]]
+train = np.c_[train[:, 0], train[:, 2], train[:, 5], train[:, 7:]]#year, temp, precip, flow, SF, conc
 
 datetime_test = merge.loc[test_startDate : endDate].index[:].strftime('%Y-%m-%d')
 datetime_train = merge.loc[train_startDate : test_startDate].index[:].strftime('%Y-%m-%d')
@@ -190,7 +190,7 @@ def rootMSE(y_test, y_pred):
 tf.keras.backend.clear_session()
 tf.random.set_seed(seed)
 
-opt = tf.keras.optimizers.Adam(learning_rate=1e-4)#default lr=0.001
+opt = tf.keras.optimizers.Adam(learning_rate=5e-4)#default lr=0.001
 #@tf.function
 def create_LSTM(neurons, dropoutRate, constraints):
     # Ignore the WARNING here, numpy version problem
@@ -370,8 +370,8 @@ else:
 # =============================================================================
 #Plot test
 if target_type == 'conc':
-    plt.plot(test_datetime, y_test_not_scaled, label='test')
     plt.plot(test_datetime, y_pred, label='test pred')#x-label requires turning angle
+    plt.plot(test_datetime, y_test_not_scaled, label='test')
     plt.legend(loc='best')
     plt.show()
     '''
@@ -416,7 +416,7 @@ np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,flowrate_tes
 np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,flowrate_train,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 100
+best_epoch = 66
 #choose load direction
 if recurrent_type == 'GRU':
     regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
@@ -426,15 +426,69 @@ else:
 # =============================================================================
 # Predicting on everyday weather data
 # =============================================================================
+merge = pd.merge(weather, flowrate, on=('Datetime'), how='left')
+merge = pd.merge(merge, SF_output, on=('Datetime'), how='left')
+merge['conc'] = np.zeros(len(merge))
 
+#choose to predict load or concentration
+if target_type == 'load':
+    print('The target is set to be load.')
+    merge['load'] = merge['flowrate']*merge['conc']
+    merge.drop('conc', 1, inplace=True)
+elif target_type == 'conc':
+    print('The target is set to be concentration.')
+else:
+    print('Wrong target type, go with target as concentration anyway.')
 
+merge = np.array(merge)
+merge = pd.DataFrame(merge, index=merge[:, 8])
 
+test = merge.drop(8,1).drop(2,1).values#for the whole dataset, no time limit
+test = np.c_[test[:, 0], test[:, 2], test[:, 5], test[:, 7:]]#year, temp, precip, flow, SF, conc
 
+datetime_test = merge.index[:].strftime('%Y-%m-%d')
 
+scaled_test = scaler.transform(test)
 
+#construct 3-D input matrix
+print('Below are results for time_step:', time_step)
+X_scaled = []
+datetime_deNull = []#target deNull
 
+scaled = scaled_test
+original = test
+datetime = datetime_test
 
+for i in range(time_step, len(scaled)):
+    if True:#all 
+        sample_input = []
+        for j in range(0, time_step):
+            sample_input.append(scaled[i-gap_days-(time_step-1-j)*avg_days, :-1])
+        X_scaled.append(sample_input)
+        datetime_deNull.append(datetime[i])
+X_scaled = np.array(X_scaled)
+datetime_deNull = np.array(datetime_deNull)
 
+X_test = X_scaled
+test_datetime = datetime_deNull
 
+k = 0
+for i in range(0, len(X_test)):
+    if k>=len(X_test):
+        break
+    for j in X_test[k, :, :]:
+        if np.isnan(j[0]) or np.isnan(j[1]) or np.isnan(j[2]) or np.isnan(j[3]) or np.isnan(j[4]):
+            #print('k:', k)# for testing, print out which sample contains NaN
+            X_test = np.r_[X_test[:k, :, :], X_test[k+1:, :, :]]
+            test_datetime = np.r_[test_datetime[:k], test_datetime[k+1:]]
+            k = k - 1
+            break
+    k = k + 1
 
+y_pred_scaled = regressor.predict(X_test)
+sc_flow = MinMaxScaler(feature_range=(0, 1), copy=True)
+sc_flow.fit_transform(np.array(y_train_not_scaled).reshape(-1, 1))
+y_pred = sc_flow.inverse_transform(y_pred_scaled)#the predicted concentration on the whole dataset
 
+#Saving predicted results
+np.savetxt('pred_whole_'+species+'_conc_'+station+'_5Input.csv',np.c_[test_datetime,y_pred],fmt='%s',delimiter=',')#test_datetime as x
