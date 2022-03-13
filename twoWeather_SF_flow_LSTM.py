@@ -26,7 +26,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # Choosing parameters
 # =============================================================================
 station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
-species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
+species = 'Se'#'NO3' OR 'Se' OR 'SO4'
 
 target_type = 'conc'#fixed to conc
 recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
@@ -36,11 +36,11 @@ time_step = 10
 gap_days = 0#No. of days between the last day of input and the predict date
 seed = 39#seed gave the best prediction result for FRO KC1 station, keep it
 
-train_startDate = '1980-01-01'
+train_startDate = '1999-12-31'
 test_startDate = '2013-01-01'
 endDate = '2013-12-31'
 
-outlier_threshold = 6#100 for EVO_HC1, 300 for FRO_KC1, 50 for FRO_HC1
+outlier_threshold = 50#100 for EVO_HC1, 300 for FRO_KC1, 50 for FRO_HC1
 
 # =============================================================================
 # Loading datasets
@@ -416,7 +416,7 @@ np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,flowrate_tes
 np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,flowrate_train,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 66
+best_epoch = 105
 #choose load direction
 if recurrent_type == 'GRU':
     regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process
