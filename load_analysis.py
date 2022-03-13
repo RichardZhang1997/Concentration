@@ -58,6 +58,9 @@ for i in range(0, len(flowrate)):
     if flowrate['flow'][i] > outlier_flow:
         flowrate.drop(i, 0, inplace=True)
 
+# =============================================================================
+# Monthly load
+# =============================================================================
 merge = pd.merge(datetime, flowrate, on=('Datetime'), how='left')
 flow_deNaN = merge.loc[:, ['Datetime','month','year','flow']].dropna()
 flow_deNaN.index = range(0,len(flow_deNaN))
@@ -110,19 +113,29 @@ load = pd.DataFrame()
 for i in range(0, len(flow_avg)):
     for j in range(0, len(conc_avg)):
         if flow_avg.loc[i, 'month']==conc_avg.loc[j, 'month'] and flow_avg.loc[i, 'year']==conc_avg.loc[j, 'year']:
-            load.loc[i, 'load'] =  flow_avg.loc[i, 'avg_flow']*conc_avg.loc[j, 'avg_conc']#unit of load: grams/sec
+            load.loc[i, 'flux'] =  flow_avg.loc[i, 'avg_flow']*conc_avg.loc[j, 'avg_conc']#unit of load: grams/sec
             load.loc[i, 'month'] = flow_avg.loc[i, 'month']
             load.loc[i, 'year'] = flow_avg.loc[i, 'year']
             load.loc[i, 'Datetime'] = dt.date(int(flow_avg.loc[i, 'year']),int(flow_avg.loc[i, 'month']),15)
 load.index = range(0,len(load))
 
+
 for i in range(0, len(load)):
     if load.loc[i, 'month']==1 or load.loc[i, 'month']==3 or load.loc[i, 'month']==5 or load.loc[i, 'month']==7 or load.loc[i, 'month']==8 or load.loc[i, 'month']==10 or load.loc[i, 'month']==12:
-        load.loc[i, 'load'] = load.loc[i, 'load']*60*60*24*31/1000#unit of loading: kg/month
+        load.loc[i, 'load'] = load.loc[i, 'flux']*60*60*24*31/1000#unit of loading: kg/month
     elif load.loc[i, 'month']==2:
-        load.loc[i, 'load'] = load.loc[i, 'load']*60*60*24*28.25/1000
+        load.loc[i, 'load'] = load.loc[i, 'flux']*60*60*24*28.25/1000
     else:
-        load.loc[i, 'load'] = load.loc[i, 'load']*60*60*24*30/1000
+        load.loc[i, 'load'] = load.loc[i, 'flux']*60*60*24*30/1000
 
+# =============================================================================
+# Daily load
+# =============================================================================
+merge = pd.merge(flowrate, concentration, on=('Datetime'))
 
+startDate = merge['Datetime'][0]
+endDate = merge['Datetime'][len(merge)-1]
 
+merge['flux'] = merge['flow']*merge['conc']
+merge['daily_load'] = merge['flux']*60*60*24/1000
+merge.dropna(inplace=True)
