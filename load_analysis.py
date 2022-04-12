@@ -12,8 +12,8 @@ os.chdir("D:\\Study\\Marko Mine\\Flowrate")
 import pandas as pd
 import datetime as dt
 
-station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
-species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
+station = 'FRO_KC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+species = 'Se'#'NO3' OR 'Se' OR 'SO4'
 outlier_conc = 300#For Se only: 100 for EVO_HC1, 300 and 50 for FRO_KC1 and FRO_HC1
 outlier_flow = 8#8 for FRO_KC1, 15 and 8 for FRO_HC1 and EVO_HC1
 
@@ -127,6 +127,7 @@ for i in range(0, len(load)):
         load.loc[i, 'load'] = load.loc[i, 'flux']*60*60*24*28.25/1000
     else:
         load.loc[i, 'load'] = load.loc[i, 'flux']*60*60*24*30/1000
+#load is the target
 
 # =============================================================================
 # Daily load
@@ -139,3 +140,4 @@ endDate = merge['Datetime'][len(merge)-1]
 merge['flux'] = merge['flow']*merge['conc']
 merge['daily_load'] = merge['flux']*60*60*24/1000
 merge.dropna(inplace=True)
+#merge is the target

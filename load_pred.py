@@ -13,8 +13,8 @@ os.chdir("D:\\Study\\Marko Mine\\Concentration")
 import pandas as pd
 import datetime as dt
 
-station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
-species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
+station = 'FRO_KC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+species = 'Se'#'NO3' OR 'Se' OR 'SO4'
 
 #load predict data
 flowrate = pd.read_csv('.\\SF_flow_pred\\pred_whole_1980-2020_'+station+'_4Input.csv')
@@ -174,6 +174,7 @@ for i in range(0, len(load)):
         load.loc[i, 'load'] = load.loc[i, 'avg_flux']*60*60*24*28.25/1000
     else:
         load.loc[i, 'load'] = load.loc[i, 'avg_flux']*60*60*24*30/1000
+#load is the target
 
 # =============================================================================
 # Daily Load
@@ -186,3 +187,4 @@ endDate = merge['Datetime'][len(merge)-1]
 merge['flux'] = merge['flow']*merge['conc']
 merge['daily_load'] = merge['flux']*60*60*24/1000
 merge.dropna(inplace=True)
+#merge is the target
