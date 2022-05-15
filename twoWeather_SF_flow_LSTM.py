@@ -25,8 +25,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # =============================================================================
 # Choosing parameters
 # =============================================================================
-station = 'EVO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
-species = 'Se'#'NO3' OR 'Se' OR 'SO4'
+station = 'FRO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
 
 target_type = 'conc'#fixed to conc
 recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
@@ -68,12 +68,13 @@ concentration = pd.read_csv('.\\conc_data_csv\\'+station+'_'+species+'.csv')#con
 concentration.columns = ['sample_date', 'conc']
 concentration['Datetime'] = pd.to_datetime(concentration['sample_date'], format='%Y/%m/%d')
 concentration.drop('sample_date', 1, inplace=True)
-
+concentration.describe()
+'''
 #deleting outliers
 for i in range(0, len(concentration)):
     if concentration['conc'][i] > outlier_threshold:
         concentration.drop(i, 0, inplace=True)
-
+'''
 # =============================================================================
 # Pre-processing
 # =============================================================================
