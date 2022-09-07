@@ -69,7 +69,14 @@ annual_load['Annual_load_pred'] = loading.groupby('year')['load_pred_con'].sum()
 # =============================================================================
 # Real annual loading calculation
 # =============================================================================
+end_year = min(load_pred['Datetime'][len(load_pred)-1], load_real['Datetime'][len(load_real)-1]).year-1
+date_series = pd.date_range(start=str(start_year)+"-01-01",end=str(end_year)+"-12-31").to_pydatetime().tolist()
 f_real = interp1d(timestampToNum(load_real['Datetime']), load_real['daily_load'])
 load_real_con = f_real(timestampToNum(date_series))
+
+loading = pd.DataFrame()
+loading['date'] = date_series
+loading['year'] = timestampToYear(date_series)
+
 loading['load_real_con'] = load_real_con
 annual_load['Annual_load_real'] = loading.groupby('year')['load_real_con'].sum()#NO3 loading in unit of kg, Se loading in unit of g

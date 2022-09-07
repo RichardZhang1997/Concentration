@@ -187,4 +187,8 @@ endDate = merge['Datetime'][len(merge)-1]
 merge['flux'] = merge['flow']*merge['conc']
 merge['daily_load'] = merge['flux']*60*60*24/1000
 merge.dropna(inplace=True)
-#merge is the target
+#merge, temp is the target
+
+temp = pd.DataFrame()
+temp['Datetime']=merge['Datetime']
+temp['daily_load']=merge['daily_load']

@@ -25,22 +25,22 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 # =============================================================================
 # Choosing parameters
 # =============================================================================
-station = 'FRO_HC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
+station = 'FRO_KC1'#'FRO_KC1' OR 'FRO_HC1' OR 'EVO_HC1'
 species = 'NO3'#'NO3' OR 'Se' OR 'SO4'
 
 target_type = 'conc'#fixed to conc
-recurrent_type = 'GRU'#choose 'LSTM' OR 'GRU'
+recurrent_type = 'LSTM'#choose 'LSTM' OR 'GRU'
 
 avg_days = 6#average days for LSTM input
 time_step = 10
 gap_days = 0#No. of days between the last day of input and the predict date
-seed = 39#seed gave the best prediction result for FRO KC1 station, keep it
+seed = 99#seed gave the best prediction result for FRO KC1 station, keep it
 
-train_startDate = '1999-12-31'
+train_startDate = '2003-10-01'#reserve at least a time_step before the first conc measurement
 test_startDate = '2013-01-01'
 endDate = '2013-12-31'
 
-outlier_threshold = 50#100 for EVO_HC1, 300 for FRO_KC1, 50 for FRO_HC1
+#outlier_threshold = 100#100 for EVO_HC1, 300 for FRO_KC1, 50 for FRO_HC1
 
 # =============================================================================
 # Loading datasets
@@ -68,13 +68,15 @@ concentration = pd.read_csv('.\\conc_data_csv\\'+station+'_'+species+'.csv')#con
 concentration.columns = ['sample_date', 'conc']
 concentration['Datetime'] = pd.to_datetime(concentration['sample_date'], format='%Y/%m/%d')
 concentration.drop('sample_date', 1, inplace=True)
-concentration.describe()
+
 '''
 #deleting outliers
 for i in range(0, len(concentration)):
     if concentration['conc'][i] > outlier_threshold:
         concentration.drop(i, 0, inplace=True)
 '''
+concentration.describe()
+
 # =============================================================================
 # Pre-processing
 # =============================================================================
@@ -187,11 +189,14 @@ def rootMSE(y_test, y_pred):
     print('Real results length:', y_test.shape)
     return rmse
 
+# =============================================================================
+# Constructing the RNN model
+# =============================================================================
 #print(tf.__version__)
 tf.keras.backend.clear_session()
 tf.random.set_seed(seed)
 
-opt = tf.keras.optimizers.Adam(learning_rate=5e-4)#default lr=0.001
+opt = tf.keras.optimizers.Adam(learning_rate=2e-4)#default lr=0.001
 #@tf.function
 def create_LSTM(neurons, dropoutRate, constraints):
     # Ignore the WARNING here, numpy version problem
@@ -263,7 +268,7 @@ best_dropoutRate = 0.1
 constraints = 99
 batch_size = 4
 
-early_epoch = 200
+early_epoch = 100
 validation_freq = 1
 
 print('The training stopped at epoch:', early_epoch)
@@ -417,7 +422,7 @@ np.savetxt(station+'_'+species+'_Test_Data.csv',np.c_[test_datetime,flowrate_tes
 np.savetxt(station+'_'+species+'_Train_Data.csv',np.c_[train_datetime,flowrate_train,y_train_not_scaled,y_pred_train],fmt='%s',delimiter=',')
 
 # Restore the weights
-best_epoch = 105
+best_epoch = 74
 #choose load direction
 if recurrent_type == 'GRU':
     regressor.load_weights('./Vanilla_GRU results/'+station+'/'+species+'/5Input_conc_'+str(best_epoch))#Skip compiling and fitting process

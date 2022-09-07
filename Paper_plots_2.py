@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import DateFormatter, YearLocator
 
-station = 'EVO_HC1'
-species = 'Se'#'NO3' OR 'Se' 
-regression = pd.read_csv('./Visualization/Data/'+station+'_'+species+'_Data.csv')
+station = 'FRO_KC1'
+species = 'NO3'#'NO3' OR 'Se' 
+regression = pd.read_csv('./Visualization/Conf_paper/data/'+station+'_'+species+'_Data.csv')
 #threshold = 1.2#1.2, 1.7, and 0.7 for FRO_KC1, FRO_HC1, and EVO_HC1
 waste_rock_vol = pd.read_csv('./Visualization/Data/waste_rock_volume.csv')
 
@@ -47,14 +47,17 @@ plt.rcParams['ytick.labelsize'] = 16
 #wight为字体的粗细，可选 ‘normal\bold\light’等
 #size为字体大小
 #plt.title(station,fontdict=font2, pad=14)#Title
-plt.scatter(x1, y1, edgecolors=None, c='magenta', s=15, marker='s', label='Measured')#red/green for NO3, magenta/blue for Se
-plt.plot(x1, y2,'b-', lw=2.0, label="Model Output")#Line
+plt.scatter(x1, y1, edgecolors=None, c='red', s=15, marker='s', label='Measured')#red/green for NO3, magenta/blue for Se
+plt.plot(x1, y2,'g-', lw=2.0, label="Model Output")#Line
 plt.axvline(x=datetime.date(2013,1,1), ls='--', c='black', lw=1.0)
-plt.ylabel('Selenium Concentration (μg/L)',fontdict=font2)#$\mathregular{min^{-1}}$label的格式,^{-1}为上标
+#2 choose 1
+#plt.ylabel('Selenium Concentration (μg/L)',fontdict=font2)#$\mathregular{min^{-1}}$label的格式,^{-1}为上标
+plt.ylabel('Nitrate Concentration (mg/L)',fontdict=font2)
+
 plt.xlabel('Time',fontdict=font2)
 plt.legend(loc="upper left",scatterpoints=1,prop=font1,shadow=True,frameon=False)#添加图例,
-ax.set_xlim(datetime.date(2003,1,1), datetime.date(2014,1,1))
-ax.set_ylim(0.0, 300.0)#NO3: 140, 12, 6 for station 1 2 and 3; Se: 300, 50, 50
+ax.set_xlim(datetime.date(2001,1,1), datetime.date(2014,1,1))
+ax.set_ylim(0.0, 140.0)#NO3: 140, 12, 6 for station 1 2 and 3; Se: 300, 50, 50
 # Major ticks every 12 months.
 fmt_whole_year = YearLocator(1, month=1, day=1)
 ax.xaxis.set_major_locator(fmt_whole_year)
@@ -94,9 +97,9 @@ start_date = '2002-01-01'
 end_date = '2020-01-01'
 
 x1 = list(daily_load['Datetime'].loc[start_date : end_date])
-y1 = list(daily_load['daily_load'].loc[start_date : end_date]/1000)#NO3 in the unit of tonne, Se in kg
+y1 = list(daily_load['daily_load'].loc[start_date : end_date]/1e3)#'/1e3': NO3 in the unit of tonne, Se in kg
 x2 = list(annual_load['Datetime'].loc[start_date : end_date])
-y2 = list(annual_load['Annual_load_pred'].loc[start_date : end_date]/1e6)#NO3 in the unit of thousand tonne, Se in tonne
+y2 = list(annual_load['Annual_load_pred'].loc[start_date : end_date]/1e6)#'/1e6': NO3 in the unit of thousand tonne, Se in tonne
 #x3 = list(annual_load_real['Datetime'])
 #y3 = list(annual_load_real['Annual_load_real']/1000)#NO3 in the unit of tonne, Se in kg
 
@@ -110,12 +113,15 @@ date_form = DateFormatter("%Y")#only display year here, capital means 4 digits
 
 #annual loading
 ax2 = fig.add_subplot(111)   #组合图必须加这个
-plt.plot(x2, y2, '-o', markersize=10, lw=2.0, label="Annual Loading Prediction", color='magenta')#red/blue for NO3, magenta/green for Se
+plt.plot(x2, y2, '-o', markersize=10, lw=2.0, label="Annual Loading Prediction", color='red')#red/blue for NO3, magenta/green for Se
 #plt.plot(x3, y3, '-s', markersize=10, lw=1.0, label="Annual Loading Estimation", color='orange')
-plt.ylabel('Selenium Annual Loading (tonnes)',fontdict=font2)#$\mathregular{min^{-1}}$label的格式,^{-1}为上标
+#2 choose 1
+#plt.ylabel('Selenium Annual Loading (tonnes)',fontdict=font2)
+plt.ylabel('Nitrate Annual Loading (kilotonnes)',fontdict=font2)#$\mathregular{min^{-1}}$label的格式,^{-1}为上标
+
 ax2.set_xlabel('Time',fontdict=font2)
 #plt.xlabel('Time',fontdict=font2)
-ax2.set_ylim(0.0, 1.0)#NO3: 140, 12, 6 for station 1 2 and 3; Se: 300, 50, 50
+ax2.set_ylim(0.0, 4)#NO3: 140, 12, 6 for station 1 2 and 3; Se: 300, 50, 50
 #plt.axvline(x=datetime.date(2013,1,1), ls='--', c='black', lw=1.0)
 ax2.xaxis.set_major_locator(fmt_whole_year)
 ax2.xaxis.set_major_formatter(date_form)
@@ -123,15 +129,18 @@ plt.legend(loc='upper left',frameon=False,prop=font2)
 
 #daily loading
 ax1 = ax2.twinx()
-ax1.bar(x = x1, height=y1, color='green', 
-        label='Daily Loading Prediction')
-ax1.set_ylabel('Selenium Daily Loading (kilograms)',fontdict=font2)#$\mathregular{min^{-1}}$label的格式,^{-1}为上标
+ax1.bar(x = x1, height=y1, color='blue', 
+        label='Daily Loading Prediction', width=1)
+#2 choose 1
+#ax1.set_ylabel('Selenium Daily Loading (kilograms)',fontdict=font2)#$\mathregular{min^{-1}}$label的格式,^{-1}为上标
+ax1.set_ylabel('Nitrate Daily Loading (tonnes)',fontdict=font2)
+
 #ax1.set_xlabel('Time',fontdict=font2)
 ax1.set_xlim(datetime.datetime.strptime(start_date,'%Y-%m-%d'), datetime.datetime.strptime(end_date,'%Y-%m-%d'))
-ax1.set_ylim(0.0, 10)#NO3: 140, 12, 6 for station 1 2 and 3; Se: 300, 50, 50
+ax1.set_ylim(0.0, 40)#NO3: 140, 12, 6 for station 1 2 and 3; Se: 300, 50, 50
 plt.legend(loc='upper right',frameon=False,prop=font2)
 
-plt.text(0.45, 0.94, 'Station 3', fontdict=font2, transform = ax2.transAxes)
+plt.text(0.45, 0.94, 'Station 1', fontdict=font2, transform = ax2.transAxes)
 
 #ax.xaxis.set_major_locator(fmt_whole_year)
 #ax.xaxis.set_major_formatter(date_form)
