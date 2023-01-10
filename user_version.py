@@ -36,7 +36,7 @@ b1 = tk.Button(window_dir, text='Confirm', width=15,
 b1.pack()
 
 #print(tk.messagebox.showinfo(title='Your directory is:', message=str(var)))
-
+tk.Button(window_dir, text="Quit", command=window_dir.destroy).pack() #button to close the window
 
 #t = tk.Text(window_dir, height=2)
 #t.pack()
@@ -50,6 +50,8 @@ b1.pack()
 
 
 window_dir.mainloop()
+
+
 
 # =============================================================================
 # Panel
