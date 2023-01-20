@@ -310,11 +310,11 @@ e_7.place(x=600, y=430, anchor='nw')
 
 #Confirm bottom 
 def get_out_name_string():
-    global get_out_name_string
-    get_out_name_string = e_7.get()
+    global out_name_string
+    out_name_string = e_7.get()
     #t.insert('insert', var)
     #display_str = ''
-    tk.messagebox.showinfo(title='Input updated', message='Your output file name is:'+str(get_out_name_string))
+    tk.messagebox.showinfo(title='Input updated', message='Your output file name is:'+str(out_name_string))
     
     var_l_6.set('6. Please input the output directory like: "D:\\MyFile\\myMineData". \nOutput directory received.')
     return 
@@ -371,7 +371,7 @@ def save_and_continue():
     
     #save the file to the output directory
     try:
-        raw_data.to_csv(path_or_buf=out_dir_string+'\\'+get_out_name_string+'.csv',index=False)
+        raw_data.to_csv(path_or_buf=out_dir_string+'\\'+out_name_string+'.csv',index=False)
         tk.messagebox.showinfo(title='Processed data saved', 
                                message='The processed data has been saved successfully.')
     except Exception as ex:
@@ -383,6 +383,3 @@ def save_and_continue():
 
 tk.Button(window_dir, text="Save & Continue", command=save_and_continue).pack(side='bottom') #button to close the window
 window_dir.mainloop()
-
-raw_data = pd.read_csv(filepath_or_buffer=dir_string, skiprows=No_lin-2,
-                       usecols=use_col, header=1)
