@@ -142,10 +142,11 @@ l_3.place(x=0, y=140, anchor='nw')#y+70 from last label
 e_3 = tk.Entry(window_dir, show="", width=30)#Input line window
 e_3.place(x=600, y=160, anchor='nw')
 
+use_col = []
+
 #Confirm bottom 
 def get_use_col():
     global use_col
-    use_col = []
     str_use_col = e_3.get()
     str_use_col = str_use_col.split(sep=',')
     try:
@@ -166,12 +167,13 @@ def get_use_col():
 tk.Button(window_dir, text='3. Confirm the used column', width=30,
               height=2, command=get_use_col).place(x=600, y=181, anchor='nw')
 
+'''
 # =============================================================================
 # Choose which feature is Datetime to get date_col
 # =============================================================================
 #Label
 var_l_4 = tk.StringVar()
-var_l_4.set('''4. Please input which Column/line is the datetime: ''')
+var_l_4.set('4. Please input which column/line is the datetime: ')
 
 l_4 = tk.Label(window_dir, textvariable=var_l_4, bg='white', font=('Times New Roman', 12), height=4)
 l_4.place(x=0, y=210, anchor='nw')#y+70 from last label
@@ -186,7 +188,7 @@ def get_date_col():
     try:
         date_col = int(e_4.get())-1
         tk.messagebox.showinfo(title='Input updated', message='Datetime is the column/line of:'+str(date_col+1))
-        var_l_4.set('''4. Please input which column/line is the datetime (Confirmed): ''')
+        var_l_4.set('4. Please input which column/line is the datetime (Confirmed): ')
     except Exception as ex:
         tk.messagebox.showerror(title='Wrong No. of column/line', message=ex)
     #if date_col in use_col:
@@ -195,6 +197,35 @@ def get_date_col():
 
 tk.Button(window_dir, text='4. Confirm the datetime column/line', width=30,
               height=2, command=get_date_col).place(x=600, y=254, anchor='nw')#y+=73
+'''
+# =============================================================================
+# Input the number of column when stop reading to get No_col_end
+# =============================================================================
+#Label
+var_l_4 = tk.StringVar()
+var_l_4.set('''4. Please input which column you want to stop reading: ''')
+
+l_4 = tk.Label(window_dir, textvariable=var_l_4, bg='white', font=('Times New Roman', 12), height=4)
+l_4.place(x=0, y=210, anchor='nw')#y+70 from last label
+
+#Entry
+e_4 = tk.Entry(window_dir, show="", width=30)#Input line window
+e_4.place(x=600, y=235, anchor='nw')
+
+#Confirm bottom
+def get_No_col_end():
+    global No_col_end
+    try:
+        No_col_end = int(e_4.get())
+        tk.messagebox.showinfo(title='Input updated', message='The program stop reading at column:'+str(No_col_end))
+        var_l_4.set('''4. Please input which column you want to stop reading (Confirmed): ''')
+    except Exception as ex:
+        tk.messagebox.showerror(title='Wrong No. of column', message=ex)
+
+    return
+
+tk.Button(window_dir, text='4. Confirm the end No. of column', width=30,
+              height=2, command=get_No_col_end).place(x=600, y=254, anchor='nw')#y+=73
 
 # =============================================================================
 # If line/column a feature to get use_col_conf.get()
@@ -249,18 +280,48 @@ e_6 = tk.Entry(window_dir, show="", width=65)#Input text window
 e_6.place(x=475, y=360, anchor='nw')
 
 #Confirm bottom 
-def get_out_string():
-    global out_string
-    out_string = e_6.get()
+def get_out_dir_string():
+    global out_dir_string
+    out_dir_string = e_6.get()
     #t.insert('insert', var)
     #display_str = ''
-    tk.messagebox.showinfo(title='Input updated', message='Your output directory is:'+str(out_string))
+    tk.messagebox.showinfo(title='Input updated', message='Your output directory is:'+str(out_dir_string))
     
     var_l_6.set('6. Please input the output directory like: "D:\\MyFile\\myMineData". \nOutput directory received.')
     return 
 
 tk.Button(window_dir, text='6. Confirm output directory', width=30,
-              height=2, command=get_out_string).place(x=600, y=380, anchor='nw')
+              height=2, command=get_out_dir_string).place(x=600, y=380, anchor='nw')
+
+# =============================================================================
+# Output file name to get get_out_name_string
+# =============================================================================
+#Label 
+var_l_7 = tk.StringVar()
+var_l_7.set('''6. Please input the file name: ''')
+
+l_7 = tk.Label(window_dir, textvariable=var_l_7, bg='white', font=('Times New Roman', 12), height=4)
+l_7.place(x=0, y=420, anchor='nw')#y+70 from last label
+
+#Entry for address
+# e = tk.Entry(window, show="*")
+e_7 = tk.Entry(window_dir, show="", width=30)#Input text window
+e_7.place(x=600, y=430, anchor='nw')
+
+#Confirm bottom 
+def get_out_name_string():
+    global get_out_name_string
+    get_out_name_string = e_7.get()
+    #t.insert('insert', var)
+    #display_str = ''
+    tk.messagebox.showinfo(title='Input updated', message='Your output file name is:'+str(get_out_name_string))
+    
+    var_l_6.set('6. Please input the output directory like: "D:\\MyFile\\myMineData". \nOutput directory received.')
+    return 
+
+tk.Button(window_dir, text='7. Confirm output file name', width=30,
+              height=2, command=get_out_name_string).place(x=600, y=453, anchor='nw')
+
 
 # =============================================================================
 # The end of the Input window 
@@ -270,7 +331,7 @@ def save_and_continue():
     global raw_data
     #Output file directory
     try:
-        os.chdir(out_string)
+        os.chdir(out_dir_string)
         tk.messagebox.showinfo(title='Directory is fine', message='The output directory has been set')
     except Exception as ex:
         tk.messagebox.showerror(title='Wrong directory', message=ex)
@@ -296,7 +357,7 @@ def save_and_continue():
     else:
         try:
             raw_data = pd.read_csv(filepath_or_buffer=dir_string, skiprows=No_lin-2,
-                                   usecols=use_col).T
+                                   usecols=[i for i in range(No_col-1, No_col_end)]).T
             raw_data.index = range(0,len(raw_data))
             raw_data.columns = raw_data.iloc[0,:]
             raw_data = raw_data.iloc[1:,:]
@@ -310,7 +371,7 @@ def save_and_continue():
     
     #save the file to the output directory
     try:
-        raw_data.to_csv(path_or_buf=out_string+'\\ExOutData.csv',index=False)
+        raw_data.to_csv(path_or_buf=out_dir_string+'\\'+get_out_name_string+'.csv',index=False)
         tk.messagebox.showinfo(title='Processed data saved', 
                                message='The processed data has been saved successfully.')
     except Exception as ex:
@@ -323,3 +384,5 @@ def save_and_continue():
 tk.Button(window_dir, text="Save & Continue", command=save_and_continue).pack(side='bottom') #button to close the window
 window_dir.mainloop()
 
+raw_data = pd.read_csv(filepath_or_buffer=dir_string, skiprows=No_lin-2,
+                       usecols=use_col, header=1)
